@@ -250,3 +250,61 @@ exports.loginUser = async (req, res) => {
         })
     }
 }
+
+exports.changePassword = async (req, res) => {
+    try {
+        const userDetails = await User.findById(req.payloadInfo.id)
+
+        const { oldPassword, newPassword } = req.body;
+
+        const isPasswordMatch = await bcrypt.compare(
+            oldPassword,
+            userDetails.password
+        )
+        if (!isPasswordMatch) {
+            return res.status(401).json({
+                success: false,
+                message: "Your old password is incorrect"
+            })
+        }
+
+        const encryptedPassword = await bcrypt.hash(newPassword, 10)
+        const updatedUserDetails = await User.findByIdAndUpdate(
+            { _id: req.payloadInfo.id },
+            { password: encryptedPassword },
+            { new: true }
+        )
+
+
+        try {
+            const emailResponse = await mailSender(
+                updatedUserDetails.email,
+                "Password for your account has been updated",
+                "your password is changed successfully"
+            )
+            console.log("Email sent successfully:", emailResponse.response)
+        } catch (error) {
+
+            console.error("Error occurred while sending email to change password:", error)
+            return res.status(500).json({
+                success: false,
+                message: "Error occurred while sending email to change password.",
+                error: error.message,
+            })
+        }
+
+        // Return success response
+        return res.status(200).json({
+            success: true,
+            message: "Password updated successfully"
+        })
+    } catch (error) {
+        // If there's an error updating the password, log the error and return a 500 (Internal Server Error) error
+        console.error("Error occurred while updating password:", error)
+        return res.status(500).json({
+            success: false,
+            message: "Error occurred while updating password",
+            error: error.message,
+        })
+    }
+}
