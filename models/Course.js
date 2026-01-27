@@ -49,12 +49,26 @@ const courseSchema = new mongoose.Schema({
         type: String,
         enum: ["Draft", "Published"],
     },
+    totalDuration: {
+        type: Number,
+        default: 0
+    },
+    completionStatus: {
+        type: String,
+        enum: ["Active", "Completed"],
+        default: "Active"
+    },
     tag: {
         type: [String],
         required: true,
     },
     thumbnail: {
-        type: String,
+        url: {
+            type: String,
+        },
+        public_id: {
+            type: String,
+        }
     },
     createdAt: {
         type: Date,
