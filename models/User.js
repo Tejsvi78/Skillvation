@@ -45,13 +45,20 @@ const userSchema = new mongoose.Schema({
             ref: "Course",
         },
     ],
+    totalEarnings: {
+        type: Number,
+        default: 0,
+    },
+    pendingBalance: {
+        type: Number,
+        default: 0,
+    },
     courseProgress: [
         {
             type: mongoose.Schema.Types.ObjectId,
             ref: "CourseProgress",
         },
     ],
-
 
 },
     { timestamps: true }

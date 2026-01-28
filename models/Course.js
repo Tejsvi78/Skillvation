@@ -29,6 +29,14 @@ const courseSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "RatingAndReviews",
     }],
+    avgRating: {
+        type: Number,
+        default: 0,
+    },
+    totalRatings: {
+        type: Number,
+        default: 0,
+    },
     category: {
         type: mongoose.Schema.Types.ObjectId,
 
@@ -41,7 +49,7 @@ const courseSchema = new mongoose.Schema({
     instructions: {
         type: [String],
     },
-    sold: {
+    totalStudents: {
         type: Number,
         default: 0,
     },
@@ -58,6 +66,10 @@ const courseSchema = new mongoose.Schema({
         enum: ["Active", "Completed"],
         default: "Active"
     },
+    totalVideos: {
+        type: Number,
+        default: 0
+    },
     tag: {
         type: [String],
         required: true,
@@ -70,12 +82,14 @@ const courseSchema = new mongoose.Schema({
             type: String,
         }
     },
-    createdAt: {
-        type: Date,
-        default: Date.now,
-    },
+
 },
-    { timestamps: true }
+    {
+        timestamps: {
+            createdAt: 'createdAt',
+            updatedAt: 'updatedAt',
+        },
+    }
 )
 
 module.exports = mongoose.model("Course", courseSchema);
