@@ -85,7 +85,7 @@ exports.categoryPageDetails = async (req, res) => {
         // Get top-selling courses across all categories
         const mostSellingCourses = await Course
             .find({ status: "Published" })
-            .sort({ sold: -1 })
+            .sort({ totalStudents: -1 })
             .limit(10)
             .lean();
 
