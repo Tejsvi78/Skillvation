@@ -66,6 +66,10 @@ const courseSchema = new mongoose.Schema({
         enum: ["Active", "Completed"],
         default: "Active"
     },
+    totalEarning: {
+        type: Number,
+        default: 0
+    },
     totalVideos: {
         type: Number,
         default: 0
