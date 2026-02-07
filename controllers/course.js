@@ -1,4 +1,5 @@
 const Category = require("../models/Category");
+const SubSection = require("../models/SubSection");
 const Course = require("../models/Course");
 const CourseProgress = require("../models/CourseProgress");
 const User = require("../models/User");
@@ -241,7 +242,6 @@ exports.editCourseDetails = async (req, res) => {
             updates.instructions = instructions;
         }
 
-        // Thumbnail update (optional)
         let uploadedThumbnail;
         if (req.files?.thumbnail) {
             const thumbnail = req.files.thumbnail;
@@ -521,7 +521,7 @@ exports.openCourse = async (req, res) => {
                 select: "sectionName totalDuration subSection",
                 populate: {
                     path: "subSection",
-                    select: "title timeDuration description videoUrl updatedAt"
+                    select: "title timeDuration description videoUrl"
                 }
             })
             .populate({
@@ -551,4 +551,106 @@ exports.openCourse = async (req, res) => {
     }
 };
 
+exports.instructorCourses = async (req, res) => {
+    try {
+        const instructorId = req.payloadInfo.id;
+
+        const instructorCourses = await Course.find({
+            instructor: instructorId,
+        }).sort({ createdAt: -1 });
+
+        if (instructorCourses.length === 0) {
+            return res.status(200).json({
+                success: true,
+                message: "No courses created by you",
+                data: [],
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Instructor courses fetched successfully",
+            data: instructorCourses,
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Error while fetching instructor courses",
+            error: error.message,
+        });
+    }
+};
+
+exports.deleteCourse = async (req, res) => {
+    try {
+        const { courseId } = req.params;
+
+        const course = await Course.findById(courseId).populate({
+            path: "content",
+            populate: {
+                path: "subSection",
+                select: "_id",
+            },
+        });
+
+        if (!course) {
+            return res.status(404).json({
+                success: false,
+                message: "Course not found",
+            });
+        }
+
+        const sectionIds = course.content.map(sec => sec._id);
+        const subSectionIds = course.content.flatMap(sec =>
+            sec.subSection.map(sub => sub._id)
+        );
+
+        await cloudinary.api.delete_resources_by_prefix(
+            `courses/${courseId}`,
+            { resource_type: "video" }
+        );
+        await cloudinary.api.delete_resources_by_prefix(
+            `courses/${courseId}`,
+            { resource_type: "image" }
+        );
+
+        await cloudinary.api.delete_folder(`courses/${courseId}`);
+
+        if (subSectionIds.length > 0) {
+            await SubSection.deleteMany({ _id: { $in: subSectionIds } });
+        }
+
+        if (sectionIds.length > 0) {
+            await Section.deleteMany({ _id: { $in: sectionIds } });
+        }
+
+        await RatingAndReview.deleteMany({ course: courseId });
+
+        await User.updateMany(
+            { enrolledCourses: courseId },
+            { $pull: { enrolledCourses: courseId } }
+        );
+
+        await User.findByIdAndUpdate(
+            course.instructor,
+            { $pull: { courses: courseId } }
+        );
+
+        await Course.findByIdAndDelete(courseId);
+
+
+        res.status(200).json({
+            success: true,
+            message: "Course + sections + subsections + media deleted successfully",
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Error deleting course",
+            error: error.message,
+        });
+    }
+};
 
