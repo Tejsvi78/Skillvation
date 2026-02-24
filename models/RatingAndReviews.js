@@ -8,7 +8,10 @@ const ratingAndReviewSchema = new mongoose.Schema({
 	},
 	rating: {
 		type: Number,
+		default: 1,
 		required: true,
+		min: 1,
+		max: 5,
 	},
 	review: {
 		type: String,
@@ -21,5 +24,9 @@ const ratingAndReviewSchema = new mongoose.Schema({
 		index: true,
 	},
 });
+ratingAndReviewSchema.index(
+	{ courseID: 1, userId: 1 },
+	{ unique: true }
+);
 
 module.exports = mongoose.model("RatingAndReviews", ratingAndReviewSchema);
