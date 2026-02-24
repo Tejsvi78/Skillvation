@@ -1,4 +1,5 @@
 const jwt = require("jsonwebtoken");
+const User = require("../models/User");
 require("dotenv").config();
 
 exports.authentication = async (req, res, next) => {
@@ -20,6 +21,14 @@ exports.authentication = async (req, res, next) => {
         }
         try {
             const payload = jwt.verify(token, process.env.JWT_SECRET);
+            const user = await User.findById(payload.id);
+
+            if (!user || user.tokenVersion !== payload.tokenVersion) {
+                return res.status(401).json({
+                    success: false,
+                    message: "Session expired. Login again.",
+                });
+            }
             req.payloadInfo = payload;
         } catch (err) {
             return res.status(401).json({
@@ -28,6 +37,7 @@ exports.authentication = async (req, res, next) => {
                 error: err.message,
             })
         }
+
         next();
     } catch (error) {
         return res.status(401).json({
