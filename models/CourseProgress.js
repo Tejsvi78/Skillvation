@@ -15,6 +15,10 @@ const courseProgress_Schema = new mongoose.Schema({
             ref: "SubSection",
         },
     ],
-})
+});
+courseProgress_Schema.index(
+    { courseID: 1, userId: 1 },
+    { unique: true }
+);
 
-module.exports = mongoose.model("CourseProgress", courseProgress_Schema)
+module.exports = mongoose.model("CourseProgress", courseProgress_Schema);
