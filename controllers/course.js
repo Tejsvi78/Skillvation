@@ -87,7 +87,7 @@ exports.createCourse = async (req, res) => {
 
         });
 
-        const uploadedThumbnail = await uploadToCloudinary(thumbnail, `Courses/${newCourse._id}/thumbnail`, "auto");
+        const uploadedThumbnail = await uploadToCloudinary(thumbnail, `courses/${newCourse._id}`, "auto");
         newCourse.thumbnail = {
             url: uploadedThumbnail.secure_url,
             public_id: uploadedThumbnail.public_id
@@ -260,7 +260,7 @@ exports.editCourseDetails = async (req, res) => {
                 });
             }
 
-            uploadedThumbnail = await uploadToCloudinary(thumbnail, process.env.THUMBNAIL_FOLDER, "auto");
+            uploadedThumbnail = await uploadToCloudinary(thumbnail, `courses/${courseId}`, "auto");
 
             updates.thumbnail = {
                 url: uploadedThumbnail.secure_url,
