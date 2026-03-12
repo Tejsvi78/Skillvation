@@ -5,6 +5,8 @@ const SubSectionSchema = new mongoose.Schema({
 	timeDuration: { type: Number },
 	description: { type: String },
 	videoUrl: { type: String },
+	public_id: { type: String },
+
 },
 	{ timestamps: true }
 

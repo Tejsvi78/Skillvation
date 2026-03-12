@@ -55,6 +55,10 @@ const userSchema = new mongoose.Schema({
             ref: "Course",
         },
     ],
+    razorpay: {
+        contactId: String,
+        fundAccountId: String,
+    },
     totalEarnings: {
         type: Number,
         default: 0,
