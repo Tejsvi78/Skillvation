@@ -4,7 +4,6 @@ const SubSection = require("../models/SubSection");
 
 exports.createSection = async (req, res) => {
     try {
-
         const { sectionName, courseId } = req.body;
 
         if (!sectionName || !courseId) {
@@ -39,7 +38,6 @@ exports.createSection = async (req, res) => {
             updatedCourse,
         });
     } catch (error) {
-        // Handle errors
         res.status(500).json({
             success: false,
             message: "Error while creating new Section",
@@ -48,10 +46,15 @@ exports.createSection = async (req, res) => {
     }
 };
 
-// UPDATE a section
 exports.updateSection = async (req, res) => {
     try {
         const { sectionName, sectionId, courseId } = req.body;
+        if (!sectionName || !courseId) {
+            return res.status(400).json({
+                success: false,
+                message: "Missing required properties",
+            });
+        }
         const section = await Section.findByIdAndUpdate(
             sectionId,
             { sectionName },
@@ -69,8 +72,8 @@ exports.updateSection = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            message: section,
-            data: course,
+            message: "Section Updated successfully",
+
         });
     } catch (error) {
         console.error("Error updating section:", error);
@@ -82,50 +85,64 @@ exports.updateSection = async (req, res) => {
     }
 };
 
-// DELETE a section
 exports.deleteSection = async (req, res) => {
     try {
-
         const { sectionId, courseId } = req.body;
-        await Course.findByIdAndUpdate(courseId, {
-            $pull: {
-                content: sectionId,
-            }
-        })
         const section = await Section.findById(sectionId);
-        console.log(sectionId, courseId);
+
         if (!section) {
             return res.status(404).json({
                 success: false,
-                message: "Section not Found",
-            })
+                message: "Section not found",
+            });
         }
 
-        //delete sub section
-        await SubSection.deleteMany({ _id: { $in: section.subSection } });
+        const totalDuration = section.totalDuration || 0;
+
+        const subSections = await SubSection.find({
+            _id: { $in: section.subSection }
+        });
+        const totalVideos = subSections.length;
+
+        await Promise.all(
+            subSections.map(sub =>
+                sub.public_id
+                    ? deleteFromCloudinary(sub.public_id, "video")
+                    : Promise.resolve()
+            )
+        );
+
+        await SubSection.deleteMany({
+            _id: { $in: section.subSection }
+        });
+
+        await Course.findByIdAndUpdate(courseId, {
+            $pull: { content: sectionId },
+            $inc: {
+                totalVideos: -totalVideos,
+                totalDuration: -totalDuration,
+            }
+        });
 
         await Section.findByIdAndDelete(sectionId);
 
-        //find the updated course and return 
-        const course = await Course.findById(courseId).populate({
-            path: "content",
-            populate: {
-                path: "subSection"
-            }
-        })
-            .exec();
+        const updatedCourse = await Course.findById(courseId)
+            .populate({
+                path: "content",
+                populate: { path: "subSection" }
+            });
 
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
-            message: "Section deleted",
-            data: course
+            message: "Section deleted successfully",
+            data: updatedCourse,
         });
+
     } catch (error) {
-        console.error("Error deleting section:", error);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
-            message: "Error while deleting Section",
+            message: "Error while deleting section",
             error: error.message,
         });
     }
-};   
+};
