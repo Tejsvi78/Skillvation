@@ -8,13 +8,6 @@ const paymentSchema = new mongoose.Schema({
         index: true,
     },
 
-    instructor: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-        required: true,
-        index: true,
-    },
-
     course: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Course",
@@ -22,13 +15,13 @@ const paymentSchema = new mongoose.Schema({
         index: true,
     },
 
-    orderId: {
+    razorpayOrderId: {
         type: String,
         required: true,
         unique: true,
     },
 
-    paymentId: {
+    razorpayPaymentId: {
         type: String,
     },
 
@@ -47,25 +40,10 @@ const paymentSchema = new mongoose.Schema({
         required: true,
     },
 
-    currency: {
-        type: String,
-        default: "INR",
-    },
-
     status: {
         type: String,
-        enum: ["CREATED", "SUCCESS", "FAILED", "REFUNDED"],
-        default: "CREATED",
-    },
-
-    paymentMethod: {
-        type: String,
-    },
-
-    payoutStatus: {
-        type: String,
-        enum: ["PENDING", "PAID"],
-        default: "PENDING",
+        enum: ["Pending", "Success", "Failed"],
+        default: "Pending",
     },
 
 }, { timestamps: true });
