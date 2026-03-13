@@ -1,81 +1,82 @@
 const mongoose = require("mongoose");
 
-const userSchema = new mongoose.Schema({
+const userSchema = new mongoose.Schema(
+  {
     userName: {
-        type: String,
-        trim: true,
-        required: true,
+      type: String,
+      trim: true,
+      required: true,
     },
     email: {
-        type: String,
-        trim: true,
-        required: true,
+      type: String,
+      trim: true,
+      required: true,
     },
     password: {
-        type: String,
-        trim: true,
-        required: true,
+      type: String,
+      trim: true,
+      required: true,
     },
     userImage: {
-        type: String,
-        trim: true,
-        required: true,
+      type: String,
+      trim: true,
+      required: true,
     },
     accountType: {
-        type: String,
-        trim: true,
-        enum: ["admin", "student", "instructor"],
-        default: "student",
-        required: true,
+      type: String,
+      trim: true,
+      enum: ["admin", "student", "instructor"],
+      default: "student",
+      required: true,
     },
     active: {
-        type: Boolean,
-        default: true,
+      type: Boolean,
+      default: true,
     },
     approved: {
-        type: Boolean,
-        default: true,
+      type: Boolean,
+      default: true,
     },
     token: {
-        type: String,
+      type: String,
     },
     tokenVersion: {
-        type: Number,
-        default: 0,
+      type: Number,
+      default: 0,
     },
     resetPasswordToken: {
-        type: String,
+      type: String,
     },
     resetPasswordExpires: {
-        type: Date,
+      type: Date,
     },
     courses: [
-        {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "Course",
-        },
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Course",
+      },
     ],
     razorpay: {
-        contactId: String,
-        fundAccountId: String,
+      contactId: String,
+      fundAccountId: String,
+      previousFundAccounts: [String],
     },
     totalEarnings: {
-        type: Number,
-        default: 0,
+      type: Number,
+      default: 0,
     },
     pendingBalance: {
-        type: Number,
-        default: 0,
+      type: Number,
+      default: 0,
     },
     courseProgress: [
-        {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "CourseProgress",
-        },
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "CourseProgress",
+      },
     ],
-
-},
-    { timestamps: true }
-)
+  },
+  { timestamps: true },
+);
 
 module.exports = mongoose.model("User", userSchema);
