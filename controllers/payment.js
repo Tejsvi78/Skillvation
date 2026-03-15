@@ -2,6 +2,8 @@ const Payment = require("models/Payment");
 const { razorpay } = require("../config/connectRazorpay");
 const Course = require("../models/Course");
 const User = require("../models/User");
+const crypto = require("crypto");
+require("dotenv").config();
 
 exports.submitBankDetails = async (req, res) => {
   try {
@@ -73,7 +75,7 @@ exports.buyCourse = async (req, res) => {
         message: "Course not found",
       });
     }
-    if (course.students.includes(studentId)) {
+    if (course.enrolledStudents.includes(studentId)) {
       return res.status(400).json({
         success: false,
         message: "You are already enrolled in this course",
@@ -97,6 +99,7 @@ exports.buyCourse = async (req, res) => {
       platformFee,
       instructorEarning,
       razorpayOrderId: order.id,
+      status: "Pending",
     });
 
     res.status(200).json({
@@ -114,7 +117,155 @@ exports.buyCourse = async (req, res) => {
   }
 };
 
-exports.razorpayWebhook = async (req, res) => {};
+exports.verifyPayment = async (req, res) => {
+  try {
+    const userId = req.payloadInfo.id;
+    const {
+      razorpay_payment_id,
+      razorpay_order_id,
+      razorpay_signature,
+      courseId,
+    } = req.body;
+
+    if (
+      !razorpay_payment_id ||
+      !razorpay_order_id ||
+      !razorpay_signature ||
+      !courseId
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "All Fields are Mandatory to verify Paymemt",
+      });
+    }
+
+    const body = razorpay_order_id + "|" + razorpay_payment_id;
+
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_SECRET)
+      .update(body)
+      .digest("hex");
+
+    if (expectedSignature !== razorpay_signature) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid payment signature",
+      });
+    }
+    const payment = await Payment.findOne({
+      razorpayOrderId: razorpay_order_id,
+    });
+
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: "Payment record not found",
+      });
+    }
+
+    if (payment.status === "Success") {
+      return res.status(400).json({
+        success: false,
+        message: "Payment already verified",
+      });
+    }
+
+    await processEnrollment(userId, courseId, razorpay_payment_id);
+
+    payment.status = "Success";
+    payment.razorpayPaymentId = razorpay_payment_id;
+    payment.razorpaySignature = razorpay_signature;
+    await payment.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Payment verified and course enrolled",
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: "Payment verification failed",
+      error: error.message,
+    });
+  }
+};
+
+exports.razorpayWebhook = async (req, res) => {
+  try {
+    const signature = req.headers["x-razorpay-signature"];
+
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_WEBHOOK_SECRET)
+      .update(JSON.stringify(req.body))
+      .digest("hex");
+
+    if (signature !== expectedSignature) {
+      return res.status(400).json({ success: false });
+    }
+
+    const event = req.body.event;
+
+    if (event === "payment.captured") {
+      const paymentEntity = req.body.payload.payment.entity;
+      const payment = await Payment.findOne({
+        razorpayOrderId: paymentEntity.order_id,
+      });
+
+      if (!payment) {
+        console.log("Webhook: Payment record not found");
+        return res.status(200).send();
+      }
+      if (payment.status !== "Pending") {
+        console.log("Webhook: Payment already processed");
+        return res.status(200).send();
+      }
+
+      await processEnrollment(
+        payment.student,
+        payment.course,
+        paymentEntity.id,
+      );
+
+      payment.status = "Success";
+      payment.razorpayPaymentId = paymentEntity.id;
+
+      await payment.save();
+
+      return res.status(200).send();
+    }
+
+    if (event === "payment.failed") {
+      const paymentEntity = req.body.payload.payment.entity;
+
+      const payment = await Payment.findOne({
+        razorpayOrderId: paymentEntity.order_id,
+      });
+
+      if (!payment) {
+        return res.status(200).send();
+      }
+      if (payment.status !== "Pending") {
+        return res.status(200).send();
+      }
+
+      payment.status = "Failed";
+      payment.razorpayPaymentId = paymentEntity.id;
+
+      await payment.save();
+
+      return res.status(200).send();
+    }
+
+    return res.status(200).send();
+  } catch (error) {
+    console.error("Webhook Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Webhook processing failed",
+    });
+  }
+};
 
 exports.payAllInstructors = async (req, res) => {
   try {
@@ -209,7 +360,7 @@ exports.updateBankDetails = async (req, res) => {
     }
     const instructor = await User.findById(req.payloadInfo.id);
 
-   if (!instructor || instructor.accountType !== "instructor") {
+    if (!instructor || instructor.accountType !== "instructor") {
       return res.status(403).json({
         success: false,
         message: "Only instructors can update bank details",
@@ -257,3 +408,33 @@ exports.updateBankDetails = async (req, res) => {
     });
   }
 };
+
+async function processEnrollment(studentId, courseId, paymentId) {
+  const course = await Course.findById(courseId);
+
+  if (!course) return;
+
+  if (course.studentsEnroled.includes(studentId)) return;
+
+  course.enrolledStudents.push(studentId);
+  course.totalStudents = (course.totalStudents || 0) + 1;
+
+  const instructorShare = course.price * 0.8;
+  course.totalEarning = (course.totalEarning || 0) + instructorShare;
+
+  await course.save();
+
+  const instructor = await User.findById(course.instructor);
+
+  instructor.pendingBalance =
+    (instructor.pendingBalance || 0) + instructorShare;
+
+  await instructor.save();
+
+  const student = await User.findById(studentId);
+
+  student.courses = student.courses || [];
+  student.courses.push(courseId);
+
+  await student.save();
+}
